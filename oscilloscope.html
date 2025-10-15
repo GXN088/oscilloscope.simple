@@ -5,8 +5,8 @@
   <title>PocketBass</title>
   <style>
     body {
-      background: radial-gradient(circle at center, #1b1b1b, #000);
-      color: #00ffcc;
+      background: #000;
+      color: #0ff;
       font-family: monospace;
       display: flex;
       flex-direction: column;
@@ -14,113 +14,92 @@
       justify-content: center;
       height: 100vh;
       margin: 0;
-      overflow: hidden;
       user-select: none;
     }
-    h1 { font-size: 1.5em; margin-bottom: 1em; }
-    .keys {
-      display: grid;
-      grid-template-columns: repeat(8, 60px);
-      gap: 10px;
-    }
-    button.key {
-      background: #222;
+    button {
+      background: #111;
       color: #0ff;
       border: 1px solid #0ff;
       border-radius: 8px;
       padding: 15px;
+      margin: 10px;
       font-size: 1.2em;
       text-transform: uppercase;
-      transition: all 0.1s;
+      transition: 0.1s;
     }
-    button.key:active {
+    button:active {
       background: #0ff;
       color: #000;
       transform: scale(0.95);
+    }
+    .keys {
+      display: grid;
+      grid-template-columns: repeat(4, 70px);
+      gap: 10px;
     }
   </style>
 </head>
 <body>
   <h1>🎸 PocketBass</h1>
-  <div class="keys">
-    <button class="key" data-note="C2">A</button>
-    <button class="key" data-note="D2">S</button>
-    <button class="key" data-note="E2">D</button>
-    <button class="key" data-note="G2">F</button>
-    <button class="key" data-note="A2">G</button>
-    <button class="key" data-note="C3">H</button>
-    <button class="key" data-note="D3">J</button>
-    <button class="key" data-note="E3">K</button>
+  <button id="startAudio">🔊 Запустить звук</button>
+  <div class="keys" style="display:none">
+    <button data-note="C2">C2</button>
+    <button data-note="D2">D2</button>
+    <button data-note="E2">E2</button>
+    <button data-note="G2">G2</button>
+    <button data-note="A2">A2</button>
+    <button data-note="C3">C3</button>
+    <button data-note="D3">D3</button>
+    <button data-note="E3">E3</button>
   </div>
 
   <script>
     let audioCtx;
-    const activeOscillators = {};
-
-    const noteFreq = {
+    const activeOsc = {};
+    const freq = {
       'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'G2': 98.00,
       'A2': 110.00, 'C3': 130.81, 'D3': 146.83, 'E3': 164.81
     };
 
-    function initAudio() {
-      if (!audioCtx) {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioCtx = new AudioContext();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-    }
+    const startBtn = document.getElementById('startAudio');
+    const keysDiv = document.querySelector('.keys');
 
-    function playNote(note) {
-      if (!note || activeOscillators[note]) return;
-      initAudio();
+    startBtn.addEventListener('click', () => {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      startBtn.style.display = 'none';
+      keysDiv.style.display = 'grid';
+    });
+
+    function play(note) {
+      if (!audioCtx || activeOsc[note]) return;
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
+      osc.frequency.value = freq[note];
       osc.type = 'sine';
-      osc.frequency.value = noteFreq[note];
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.value = 0.3;
       osc.connect(gain).connect(audioCtx.destination);
       osc.start();
-      activeOscillators[note] = { osc, gain };
+      activeOsc[note] = {osc, gain};
     }
 
-    function stopNote(note) {
-      const active = activeOscillators[note];
-      if (active) {
-        active.gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-        active.osc.stop(audioCtx.currentTime + 0.1);
-        delete activeOscillators[note];
+    function stop(note) {
+      const o = activeOsc[note];
+      if (o) {
+        o.gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        o.osc.stop(audioCtx.currentTime + 0.1);
+        delete activeOsc[note];
       }
     }
 
-    const keyMap = {
-      'a': 'C2', 's': 'D2', 'd': 'E2', 'f': 'G2',
-      'g': 'A2', 'h': 'C3', 'j': 'D3', 'k': 'E3'
-    };
-
-    document.addEventListener('keydown', e => {
-      const note = keyMap[e.key.toLowerCase()];
-      if (note) playNote(note);
-    });
-    document.addEventListener('keyup', e => {
-      const note = keyMap[e.key.toLowerCase()];
-      if (note) stopNote(note);
-    });
-
-    document.querySelectorAll('.key').forEach(button => {
-      const note = button.dataset.note;
-      button.addEventListener('touchstart', e => {
-        e.preventDefault();
-        playNote(note);
-      });
-      button.addEventListener('touchend', e => {
-        e.preventDefault();
-        stopNote(note);
-      });
-      button.addEventListener('mousedown', () => playNote(note));
-      button.addEventListener('mouseup', () => stopNote(note));
-      button.addEventListener('mouseleave', () => stopNote(note));
+    document.querySelectorAll('.keys button').forEach(b => {
+      const note = b.dataset.note;
+      b.addEventListener('touchstart', e => { e.preventDefault(); play(note); });
+      b.addEventListener('touchend', e => { e.preventDefault(); stop(note); });
+      b.addEventListener('mousedown', () => play(note));
+      b.addEventListener('mouseup', () => stop(note));
+      b.addEventListener('mouseleave', () => stop(note));
     });
   </script>
 </body>
