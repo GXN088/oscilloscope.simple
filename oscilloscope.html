@@ -15,6 +15,7 @@
       height: 100vh;
       margin: 0;
       overflow: hidden;
+      user-select: none;
     }
     h1 { font-size: 1.5em; margin-bottom: 1em; }
     .keys {
@@ -53,8 +54,7 @@
   </div>
 
   <script>
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const audioCtx = new AudioContext();
+    let audioCtx;
     const activeOscillators = {};
 
     const noteFreq = {
@@ -62,8 +62,19 @@
       'A2': 110.00, 'C3': 130.81, 'D3': 146.83, 'E3': 164.81
     };
 
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
     function playNote(note) {
       if (!note || activeOscillators[note]) return;
+      initAudio();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.type = 'sine';
@@ -83,7 +94,6 @@
       }
     }
 
-    // --- Поддержка клавиатуры ---
     const keyMap = {
       'a': 'C2', 's': 'D2', 'd': 'E2', 'f': 'G2',
       'g': 'A2', 'h': 'C3', 'j': 'D3', 'k': 'E3'
@@ -98,7 +108,6 @@
       if (note) stopNote(note);
     });
 
-    // --- Поддержка тачскрина ---
     document.querySelectorAll('.key').forEach(button => {
       const note = button.dataset.note;
       button.addEventListener('touchstart', e => {
